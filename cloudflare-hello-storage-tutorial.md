@@ -7,6 +7,8 @@ This single-file guide walks you through creating a trivial Cloudflare Workers p
 
 You can drop this file into VS Code and work through it step‑by‑step.
 
+**Requirements**: Node.js 16.13+ (tested with Node 22), Wrangler 4.50.0+
+
 ---
 
 # 1. Install prerequisites
@@ -15,6 +17,8 @@ You can drop this file into VS Code and work through it step‑by‑step.
 ```
 npm install -g wrangler
 ```
+
+**Note**: With Wrangler 4.x, global install works well. You can also use `npx wrangler` if you prefer project-local installs.
 
 ### Log in
 ```
@@ -26,10 +30,19 @@ wrangler login
 # 2. Create the project
 ```
 wrangler init cf-storage-demo
+```
+
+When prompted (Wrangler 4.50.0):
+- Choose "Hello World Worker" template
+- Say **yes** or **no** to TypeScript (this guide uses JavaScript)
+- Say **yes** to Git repository if asked
+- Say **yes** to deploying (or skip for now)
+
+```
 cd cf-storage-demo
 ```
 
-Choose **ES modules** and **no GitHub template** if asked.
+The project structure will have `src/index.ts` or `src/index.js` depending on your choice.
 
 ---
 
@@ -37,66 +50,91 @@ Choose **ES modules** and **no GitHub template** if asked.
 
 ### KV
 ```
-wrangler kv:namespace create STORAGE_DEMO_KV
+wrangler kv namespace create cf_storage_demo_kv
+```
+
+For local development, also create a preview namespace:
+```
+wrangler kv namespace create cf_storage_demo_kv --preview
 ```
 
 ### R2 Bucket
 ```
-wrangler r2 bucket create storage-demo-bucket
+wrangler r2 bucket create cf-storage-demo-bucket
 ```
 
 ### D1 Database
 ```
-wrangler d1 create storage_demo_db
+wrangler d1 create cf-storage_demo_db
 ```
 
-Record the identifiers printed—wrangler will help wire them in.
+Record the identifiers printed—you'll need them for `wrangler.jsonc`.
 
 ---
 
-# 4. Configure `wrangler.toml`
+# 4. Configure `wrangler.jsonc`
 
-Edit the file to include:
+Edit the `wrangler.jsonc` file to include (add to existing config, don't replace everything):
 
-```toml
-name = "cf-storage-demo"
-main = "src/index.js"
-compatibility_date = "2024-09-01"
-
-kv_namespaces = [
-  { binding = "KV", id = "YOUR_KV_ID" }
-]
-
-r2_buckets = [
-  { binding = "R2", bucket_name = "storage-demo-bucket" }
-]
-
-[[d1_databases]]
-binding = "DB"
-database_name = "storage_demo_db"
-database_id = "YOUR_DB_ID"
+```jsonc
+// filepath: wrangler.jsonc
+{
+  "name": "cf-storage-demo",
+  "main": "src/index.js",
+  "compatibility_date": "2024-09-01",
+  "kv_namespaces": [
+    {
+      "binding": "KV",
+      "id": "YOUR_KV_ID",
+      "preview_id": "YOUR_PREVIEW_KV_ID"
+    }
+  ],
+  "r2_buckets": [
+    {
+      "binding": "R2",
+      "bucket_name": "cf-storage-demo-bucket"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "cf_storage_demo_db",
+      "database_id": "YOUR_DB_ID"
+    }
+  ]
+}
 ```
 
-Replace KV/R2/D1 IDs with the values from the CLI.
+Replace `YOUR_KV_ID`, `YOUR_PREVIEW_KV_ID`, and `YOUR_DB_ID` with the values from the CLI output.
+
+**If using TypeScript**: Change `"main": "src/index.js"` to `"main": "src/index.ts"`
+
+**Note**: The file format changed from TOML to JSONC in recent Wrangler versions. JSONC allows comments in JSON.
 
 ---
 
 # 5. Create an initial D1 table
 
+For **remote** (production):
 ```
-wrangler d1 execute storage_demo_db --command "
-CREATE TABLE messages (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  text TEXT NOT NULL
-);
-"
+wrangler d1 execute cf_storage_demo_db --remote --command "CREATE TABLE messages (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL);"
 ```
+
+For **local** development:
+```
+wrangler d1 execute cf_storage_demo_db --local --command "CREATE TABLE messages (id INTEGER PRIMARY KEY AUTOINCREMENT, text TEXT NOT NULL);"
+```
+
+With Wrangler 4.50.0, you need to run both commands to set up local and remote databases separately.
 
 ---
 
 # 6. Create `src/index.js`
 
+If Wrangler created `src/index.ts`, either rename it to `src/index.js` and update `wrangler.jsonc`, or adapt the code below to TypeScript.
+
 ```js
+// filepath: src/index.js
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
@@ -112,6 +150,9 @@ export default {
       // Write to R2
       await env.R2.put("demo.txt", "Hello from R2");
       const obj = await env.R2.get("demo.txt");
+      if (!obj) {
+        return new Response("R2 object not found", { status: 404 });
+      }
       const text = await obj.text();
       return new Response("R2 says: " + text);
     }
@@ -140,11 +181,15 @@ export default {
 wrangler dev
 ```
 
+In Wrangler 4.50.0, `wrangler dev` automatically uses local storage for all bindings by default.
+
 Browse:
 - http://localhost:8787/
 - http://localhost:8787/kv
 - http://localhost:8787/r2
 - http://localhost:8787/d1
+
+**Note**: Local R2 and D1 data persist in `.wrangler/state/` directory. Delete this folder to reset local storage.
 
 ---
 
@@ -163,7 +208,7 @@ https://cf-storage-demo.<your-subdomain>.workers.dev
 Try:
 
 ```
-curl https://.../kv
+curl https://cf-storage-demo.<your-subdomain>.workers.dev/kv
 ```
 
 ---
