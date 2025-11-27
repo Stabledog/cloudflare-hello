@@ -1,0 +1,23 @@
+name = "cf-storage-demo"
+main = "src/index.js"
+compatibility_date = "2025-01-06"
+workers_dev = true
+
+[[kv_namespaces]]
+binding = "kv"
+id = "c1451d794bfa44988bb301e4a6261320"
+preview_id = "a001ae2046e84a97baf9fa1b5764cb91"
+
+[observability]
+enabled = true
+
+# Uncomment when ready to use R2:
+# [[r2_buckets]]
+# binding = "R2"
+# bucket_name = "storage-demo-bucket"
+
+# Uncomment when ready to use D1:
+# [[d1_databases]]
+# binding = "DB"
+# database_name = "storage_demo_db"
+# database_id = "YOUR_DB_ID"
