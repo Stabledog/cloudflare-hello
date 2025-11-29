@@ -5,6 +5,10 @@ export default defineWorkersConfig({
 		poolOptions: {
 			workers: {
 				wrangler: { configPath: './wrangler.toml' },
+				miniflare: {
+					// Enable source maps for debugging
+					compatibilityFlags: ['nodejs_compat'],
+				},
 			},
 		},
 	},

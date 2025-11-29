@@ -6,9 +6,9 @@
 			"request": "launch",
 			"name": "Debug Vitest Tests",
 			"runtimeExecutable": "npm",
-			"runtimeArgs": ["run", "test", "--", "--no-file-parallelism"],
+			"runtimeArgs": ["run", "test"],
 			"console": "integratedTerminal",
-			"internalConsoleOptions": "neverOpen"
+			"skipFiles": ["<node_internals>/**"]
 		}
 	]
 }
